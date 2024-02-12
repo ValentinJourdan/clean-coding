@@ -1,0 +1,6 @@
+pandas
+pyarrow
+jaxlib
+flax
+hydra-core
+insta-fs

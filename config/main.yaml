@@ -1,0 +1,18 @@
+batch_size: 64
+num_epochs: 5
+s3_final_model: s3://<bucket_name>/<path_placeholder>
+
+features:
+  embedding_type: one-hot
+
+model:
+  conv_features: 128
+  dense_features: 128
+  use_pooling: true
+
+optimizer:
+  type: adam
+  learning_rate: 1e-3
+
+hydra:
+  output_subdir: null
