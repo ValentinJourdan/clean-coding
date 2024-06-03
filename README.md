@@ -56,3 +56,18 @@ The configuration can be adapted in the `config/main.yaml` file.
 The logs are not only written to stdout, but also to an `outputs` directory.
 The final model parameters will be uploaded to S3 (location can be specified in
 the config). Make sure to set the correct environment variables to authenticate to S3.
+
+
+## Testing
+
+There's an example unit test under the `tests/` directory.
+
+If you have set up conda/poetry correctly and have installed `pytest`,
+then `pytest tests/` should work.
+
+Otherwise, you might need to modify the `PYTHONPATH` environment variable:
+```bash
+pip install -r requirements-test.txt
+export PYTHONPATH=`pwd`/megascale/
+pytest tests/
+```
