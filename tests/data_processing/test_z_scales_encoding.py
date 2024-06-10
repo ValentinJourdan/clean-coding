@@ -1,4 +1,4 @@
-from data_processing.z_scales_encoding import Z_SCALES
+from megascale.data_processing.z_scales_encoding import Z_SCALES
 
 
 def test_z_scales_dict_has_expected_number_of_entries():
