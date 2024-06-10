@@ -68,6 +68,6 @@ then `pytest tests/` should work.
 Otherwise, you might need to modify the `PYTHONPATH` environment variable:
 ```bash
 pip install -r requirements-test.txt
-export PYTHONPATH=`pwd`/megascale/
+export PYTHONPATH=`pwd`
 pytest tests/
 ```
