@@ -34,15 +34,21 @@ and activate it:
 source megascale_venv/bin/activate
 ```
 
-As this repository uses a package from a private repository, 
-install the requirements like this:
+As this repository uses a dependency from a private repository,
+you need to create a `~/.netrc` file for letting `pip` know where to look:
 
-```python
-pip install -r requirements.txt --extra-index-url https://__token__:<insta_fs_token>@gitlab.com/api/v4/projects/47354289/packages/pypi/simple
+```bash
+machine github.com login __token__ password <GITHUB_TOKEN>
 ```
 
-The value for `<insta_fs_token>` is stored in InstaDeep’s 1Password 
-under the name “InstaFS Package Registry Token”.
+After having created that file, you can just run:
+
+```python
+pip install -r requirements.txt
+```
+
+The value for `<GITHUB_TOKEN>` comes from a personal access token that you
+must create on Github and store in the `~/.netrc` file.
 
 ## Execution
 

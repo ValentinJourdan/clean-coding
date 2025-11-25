@@ -3,4 +3,4 @@ pyarrow
 jaxlib
 flax
 hydra-core
-insta-fs
+git+https://github.com/instadeepai/InstaFS
