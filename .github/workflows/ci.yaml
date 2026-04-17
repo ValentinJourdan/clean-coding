@@ -28,5 +28,7 @@ jobs:
           run: uv run ty check
         - name: Run ruff check
           run: uv run ruff check .
+        - name: Synchronize dependencies
+          run: uv sync
 
 
