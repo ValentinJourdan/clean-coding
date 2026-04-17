@@ -6,8 +6,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from insta_fs import FilesystemManager
-from insta_fs.io import save_pkl
+from insta_fs import FilesystemManager  # ty: ignore[unresolved-import]
+from insta_fs.io import save_pkl  # ty: ignore[unresolved-import]
 
 from megascale.ml.model import OneDimensionalCNNModel
 from megascale.ml.metrics_impl import SpearmanCorrEvaluator
@@ -37,7 +37,9 @@ class Training:
             dense_features=dense_features,
             without_pooling=without_pooling,
         )
-        self._params = self._cnn_model.init(jax.random.PRNGKey(42), init_data)
+        self._params: FrozenVariableDict | dict[str, Any] = self._cnn_model.init(
+            jax.random.PRNGKey(42), init_data
+        )
 
     def get_model_and_params(
         self,
@@ -77,7 +79,7 @@ class Training:
         @jax.jit
         def _compute_loss(params, features, target):
             y_pred = self._cnn_model.apply(params, features)
-            loss = jnp.mean(optax.l2_loss(y_pred.flatten(), target))
+            loss = jnp.mean(optax.l2_loss(jnp.asarray(y_pred).flatten(), target))
             return loss
 
         @jax.jit
@@ -99,8 +101,8 @@ class Training:
         opt_state = optimizer.init(self._params)
 
         best_corr = 0
-        best_params = None
-        best_epoch = None
+        best_params: FrozenVariableDict | dict[str, Any] = self._params
+        best_epoch = 0
 
         for epoch_idx in range(n_epochs):
             losses = []
@@ -115,7 +117,9 @@ class Training:
                 )
                 losses.append(loss)
 
-            validation_pred = self._cnn_model.apply(self._params, validation_features)
+            validation_pred = np.asarray(
+                self._cnn_model.apply(self._params, validation_features)
+            )
             spearman_corr = spearman_eval.metric_computation(
                 validation_pred, validation_scores
             )

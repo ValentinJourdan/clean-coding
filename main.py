@@ -1,6 +1,7 @@
 from os.path import dirname
 import logging
 
+import numpy as np
 import pandas as pd
 import hydra
 from omegaconf import DictConfig
@@ -56,7 +57,7 @@ def main(config: DictConfig) -> None:
     )
     opt_model, opt_params = training.get_model_and_params()
 
-    test_pred = opt_model.apply(opt_params, test_features)
+    test_pred = np.asarray(opt_model.apply(opt_params, test_features))
     spearman_corr = spear.metric_computation(test_pred, test_scores)
     logging.info("Final %s on test set: %.3f", spear.name(), spearman_corr)
 
