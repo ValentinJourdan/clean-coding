@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Union
+from typing import Any, Callable, Union
 
 from flax.core.scope import FrozenVariableDict
 import jax
@@ -47,6 +47,50 @@ class Training:
         """Returns current model and parameters of this model."""
         return self._cnn_model, self._params
 
+    def _create_optimizer(
+        self, optimizer_type: str, learning_rate: float
+    ) -> optax.GradientTransformation:
+        if optimizer_type == "adam":
+            return optax.adam(learning_rate)
+        elif optimizer_type == "sgd":
+            return optax.sgd(learning_rate)
+        else:
+            raise ValueError(f"Unknown optimizer type: '{optimizer_type}'")
+
+    def _train_one_epoch(
+        self,
+        train_features: np.ndarray,
+        train_scores: np.ndarray,
+        batch_size: int,
+        update_fn: Callable,
+        opt_state: Any,
+    ) -> tuple[list, Any]:
+        losses = []
+        for i in range(0, train_features.shape[0], batch_size):
+            self._params, opt_state, loss = update_fn(
+                self._params,
+                opt_state,
+                train_features[i : i + batch_size],
+                train_scores[i : i + batch_size],
+            )
+            losses.append(loss)
+        return losses, opt_state
+
+    def _evaluate(
+        self,
+        validation_features: np.ndarray,
+        validation_scores: np.ndarray,
+        spearman_eval: SpearmanCorrEvaluator,
+    ) -> float:
+        validation_pred = np.asarray(
+            self._cnn_model.apply(self._params, validation_features)
+        )
+        return spearman_eval.metric_computation(validation_pred, validation_scores)
+
+    def _save_model(self, s3_loc: str) -> None:
+        FilesystemManager().s3_init()
+        save_pkl(self._params, s3_loc)
+
     def run(
         self,
         train_features: np.ndarray,
@@ -76,6 +120,8 @@ class Training:
 
         """
 
+        optimizer = self._create_optimizer(optimizer_type, optimizer_learning_rate)
+
         @jax.jit
         def _compute_loss(params, features, target):
             y_pred = self._cnn_model.apply(params, features)
@@ -84,44 +130,22 @@ class Training:
 
         @jax.jit
         def _update_step(params, opt_state, features, target):
-            loss, grads = jax.value_and_grad(_compute_loss)(
-                params,
-                features,
-                target,
-            )
+            loss, grads = jax.value_and_grad(_compute_loss)(params, features, target)
             updates, opt_state = optimizer.update(grads, opt_state)
             params = optax.apply_updates(params, updates)
             return params, opt_state, loss
 
-        if optimizer_type == "adam":
-            optimizer = optax.adam(optimizer_learning_rate)
-        elif optimizer_type == "sgd":
-            optimizer = optax.sgd(optimizer_learning_rate)
-
         opt_state = optimizer.init(self._params)
-
         best_corr = 0
         best_params: FrozenVariableDict | dict[str, Any] = self._params
         best_epoch = 0
 
         for epoch_idx in range(n_epochs):
-            losses = []
-            for i in range(0, train_features.shape[0], batch_size):
-                start_idx = i
-                end_idx = i + batch_size
-                self._params, opt_state, loss = _update_step(
-                    self._params,
-                    opt_state,
-                    train_features[start_idx:end_idx],
-                    train_scores[start_idx:end_idx],
-                )
-                losses.append(loss)
-
-            validation_pred = np.asarray(
-                self._cnn_model.apply(self._params, validation_features)
+            losses, opt_state = self._train_one_epoch(
+                train_features, train_scores, batch_size, _update_step, opt_state
             )
-            spearman_corr = spearman_eval.metric_computation(
-                validation_pred, validation_scores
+            spearman_corr = self._evaluate(
+                validation_features, validation_scores, spearman_eval
             )
 
             if best_corr < spearman_corr:
@@ -129,19 +153,13 @@ class Training:
                 best_params = self._params
                 best_epoch = epoch_idx
 
-            avg_loss = 0
-            for loss in losses:
-                avg_loss += loss
-            avg_loss /= len(losses)
-
             logging.info(
                 "[epoch %i] Corr: %.3f - Loss: %.3f - Best epoch so far: %i",
                 epoch_idx + 1,
                 spearman_corr,
-                avg_loss,
+                np.mean(losses),
                 best_epoch + 1,
             )
 
         self._params = best_params
-        FilesystemManager().s3_init()
-        save_pkl(self._params, s3_loc)
+        self._save_model(s3_loc)
