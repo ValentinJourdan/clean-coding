@@ -12,6 +12,19 @@ from megascale.data_processing.z_scales_encoding import (
 )
 
 
+def _preprocess_split(data: pd.DataFrame, emb_t: str) -> np.ndarray:
+    seq_envs = construct_list_of_sequence_environments(
+        data["aa_seq"], data["variant"], 5
+    )
+    wild_types = [var[0] for var in data["variant"]]
+    if emb_t == "one-hot":
+        return construct_feature_matrix_with_one_hot_encoding(seq_envs, wild_types)
+    elif emb_t == "zscales":
+        return construct_feature_matrix_with_z_scales_encoding(seq_envs, wild_types)
+    else:
+        raise ValueError(f"Unknown embedding type: '{emb_t}'")
+
+
 def preprocess_data(
     train_data: pd.DataFrame,
     validation_data: pd.DataFrame,
@@ -32,48 +45,12 @@ def preprocess_data(
         Features and targets for training, validation and test sets.
 
     """
-    # Store target values
     train_t = np.array(train_data["score"])
     validation_t = np.array(validation_data["score"])
     test_t = np.array(test_data["score"])
 
-    # Preprocess training set
-    train_seq_envs = construct_list_of_sequence_environments(
-        train_data["aa_seq"], train_data["variant"], 5
-    )
-    if emb_t == "one-hot":
-        train_f = construct_feature_matrix_with_one_hot_encoding(
-            train_seq_envs, [var[0] for var in train_data["variant"]]
-        )
-    elif emb_t == "zscales":
-        train_f = construct_feature_matrix_with_z_scales_encoding(
-            train_seq_envs, [var[0] for var in train_data["variant"]]
-        )
-
-    # Preprocess validation set
-    validation_seq_envs = construct_list_of_sequence_environments(
-        validation_data["aa_seq"], validation_data["variant"], 5
-    )
-    if emb_t == "one-hot":
-        validation_f = construct_feature_matrix_with_one_hot_encoding(
-            validation_seq_envs, [var[0] for var in validation_data["variant"]]
-        )
-    elif emb_t == "zscales":
-        validation_f = construct_feature_matrix_with_z_scales_encoding(
-            validation_seq_envs, [var[0] for var in validation_data["variant"]]
-        )
-
-    # Preprocess test set
-    test_seq_envs = construct_list_of_sequence_environments(
-        test_data["aa_seq"], test_data["variant"], 5
-    )
-    if emb_t == "one-hot":
-        test_f = construct_feature_matrix_with_one_hot_encoding(
-            test_seq_envs, [var[0] for var in test_data["variant"]]
-        )
-    elif emb_t == "zscales":
-        test_f = construct_feature_matrix_with_z_scales_encoding(
-            test_seq_envs, [var[0] for var in test_data["variant"]]
-        )
+    train_f = _preprocess_split(train_data, emb_t)
+    validation_f = _preprocess_split(validation_data, emb_t)
+    test_f = _preprocess_split(test_data, emb_t)
 
     return train_f, train_t, validation_f, validation_t, test_f, test_t
