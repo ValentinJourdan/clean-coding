@@ -22,7 +22,6 @@ jobs:
           python-version: "3.12"
 
       - name: Set up .netrc for private packages
-        if: ${{ secrets.INSTAFS_GITHUB_TOKEN != '' }}
         run: |
           echo "machine github.com login __token__ password ${{ secrets.INSTAFS_GITHUB_TOKEN }}" >> ~/.netrc
 
