@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import pandas as pd
 import numpy as np
 
@@ -5,6 +7,16 @@ from megascale.data_processing.environment import (
     construct_list_of_sequence_environments,
 )
 from megascale.data_processing.encoding import construct_feature_matrix, ENCODINGS
+
+
+@dataclass
+class PreprocessedData:
+    train_features: np.ndarray
+    train_scores: np.ndarray
+    validation_features: np.ndarray
+    validation_scores: np.ndarray
+    test_features: np.ndarray
+    test_scores: np.ndarray
 
 
 def _preprocess_split(data: pd.DataFrame, emb_t: str) -> np.ndarray:
@@ -22,7 +34,7 @@ def preprocess_data(
     validation_data: pd.DataFrame,
     test_data: pd.DataFrame,
     emb_t: str,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> PreprocessedData:
     """Preprocesses the data.
 
     This means creating features and targets for train/validation/test datasets.
@@ -37,12 +49,11 @@ def preprocess_data(
         Features and targets for training, validation and test sets.
 
     """
-    train_t = np.array(train_data["score"])
-    validation_t = np.array(validation_data["score"])
-    test_t = np.array(test_data["score"])
-
-    train_f = _preprocess_split(train_data, emb_t)
-    validation_f = _preprocess_split(validation_data, emb_t)
-    test_f = _preprocess_split(test_data, emb_t)
-
-    return train_f, train_t, validation_f, validation_t, test_f, test_t
+    return PreprocessedData(
+        train_features=_preprocess_split(train_data, emb_t),
+        train_scores=np.array(train_data["score"]),
+        validation_features=_preprocess_split(validation_data, emb_t),
+        validation_scores=np.array(validation_data["score"]),
+        test_features=_preprocess_split(test_data, emb_t),
+        test_scores=np.array(test_data["score"]),
+    )

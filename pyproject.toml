@@ -10,11 +10,10 @@ dependencies = [
     "jaxlib>=0.10.0",
     "pandas>=1.4,<3",
     "pyarrow>=23.0.1",
-    "insta-fs"
 ]
 
 [tool.uv.sources]
-insta-fs = { git = "ssh://git@github.com/instadeepai/InstaFS" }
+insta-fs = { git = "https://github.com/instadeepai/InstaFS" }
 
 [dependency-groups]
 dev = [
