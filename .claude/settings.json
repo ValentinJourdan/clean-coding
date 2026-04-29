@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv pip *)",
+      "Bash(uv sync *)",
+      "Bash(ssh -T git@github.com)",
+      "Read(//home/tristan/.ssh/**)",
+      "Read(//home/tristan/Documents/**)",
+      "Read(//home/tristan/**)"
+    ],
+    "additionalDirectories": [
+      "/home/tristan/.ssh"
+    ]
+  }
+}

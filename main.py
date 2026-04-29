@@ -6,7 +6,7 @@ import pandas as pd
 import hydra
 from omegaconf import DictConfig
 
-from megascale.data_processing.split import data_splitting_engine
+from megascale.data_processing.split import get_data_splitting
 from megascale.ml.training import Training
 from megascale.ml.metrics_impl import SpearmanCorrEvaluator
 from megascale.data_processing.preprocessing import preprocess_data
@@ -22,7 +22,7 @@ def main(config: DictConfig) -> None:
         config: Configuration object from hydra.
     """
     data = pd.read_csv(DATA_PATH)
-    train_data, validation_data, test_data, train_pr = data_splitting_engine(data, 42)
+    train_data, validation_data, test_data, train_pr = get_data_splitting(data, 42)
     logging.info("Proportion of training data: %.3f", train_pr)
 
     (
