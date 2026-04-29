@@ -7,6 +7,7 @@ requires-python = ">=3.11"
 dependencies = [
     "flax>=0.12.6",
     "hydra-core>=1.3.2",
+    "insta-fs",
     "jaxlib>=0.10.0",
     "pandas>=1.4,<3",
     "pyarrow>=23.0.1",
