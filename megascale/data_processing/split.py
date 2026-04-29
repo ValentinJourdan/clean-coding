@@ -2,6 +2,9 @@ import random
 
 import pandas as pd
 
+NUM_TEST_PDBS = 30
+NUM_VALIDATION_PDBS = 30
+
 
 def get_data_splitting(
     data: pd.DataFrame, random_seed_int: int
@@ -19,14 +22,14 @@ def get_data_splitting(
     """
     pdb_id_list = list(data["pdbid"].unique())
 
-    # Set random seed and shuffle data
     random.seed(random_seed_int)
     random.shuffle(pdb_id_list)
 
-    # 30 test and 30 validation PDBs, remaining ones are for training
-    test_pdb_list = pdb_id_list[:30]
-    validation_pdb_list = pdb_id_list[30:60]
-    train_pdb_list = pdb_id_list[60:]
+    test_pdb_list = pdb_id_list[:NUM_TEST_PDBS]
+    validation_pdb_list = pdb_id_list[
+        NUM_TEST_PDBS : NUM_TEST_PDBS + NUM_VALIDATION_PDBS
+    ]
+    train_pdb_list = pdb_id_list[NUM_TEST_PDBS + NUM_VALIDATION_PDBS :]
 
     train = data[data["pdbid"].isin(train_pdb_list)]
     valid = data[data["pdbid"].isin(validation_pdb_list)]

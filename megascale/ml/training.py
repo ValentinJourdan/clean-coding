@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 from typing import Any, Callable, Union
 
 from flax.core.scope import FrozenVariableDict
@@ -6,11 +7,16 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from insta_fs import FilesystemManager
-from insta_fs.io import save_pkl
 
 from megascale.ml.model import OneDimensionalCNNModel
 from megascale.ml.metrics_impl import SpearmanCorrEvaluator
+from megascale.data_processing.preprocessing import PreprocessedData
+
+
+@dataclass
+class OptimizerConfig:
+    type: str
+    learning_rate: float
 
 
 class Training:
@@ -48,14 +54,14 @@ class Training:
         return self._cnn_model, self._params
 
     def _create_optimizer(
-        self, optimizer_type: str, learning_rate: float
+        self, optimizer_config: OptimizerConfig
     ) -> optax.GradientTransformation:
-        if optimizer_type == "adam":
-            return optax.adam(learning_rate)
-        elif optimizer_type == "sgd":
-            return optax.sgd(learning_rate)
+        if optimizer_config.type == "adam":
+            return optax.adam(optimizer_config.learning_rate)
+        elif optimizer_config.type == "sgd":
+            return optax.sgd(optimizer_config.learning_rate)
         else:
-            raise ValueError(f"Unknown optimizer type: '{optimizer_type}'")
+            raise ValueError(f"Unknown optimizer type: '{optimizer_config.type}'")
 
     def _train_one_epoch(
         self,
@@ -88,39 +94,33 @@ class Training:
         return spearman_eval.metric_computation(validation_pred, validation_scores)
 
     def _save_model(self, s3_loc: str) -> None:
+        from insta_fs import FilesystemManager
+        from insta_fs.io import save_pkl
+
         FilesystemManager().s3_init()
         save_pkl(self._params, s3_loc)
 
     def run(
         self,
-        train_features: np.ndarray,
-        train_scores: np.ndarray,
-        validation_features: np.ndarray,
-        validation_scores: np.ndarray,
+        data: PreprocessedData,
         n_epochs: int,
         batch_size: int,
-        optimizer_type: str,
-        optimizer_learning_rate: float,
+        optimizer_config: OptimizerConfig,
         spearman_eval: SpearmanCorrEvaluator,
         s3_loc: str,
     ) -> None:
         """Runs a training loop.
 
         Args:
-            train_features: Training features.
-            train_scores: Training targets.
-            validation_features: Validation features.
-            validation_scores: Validation targets.
+            data: Preprocessed train and validation features and scores.
             n_epochs: Number of epochs.
             batch_size: Number of data points per batch.
-            optimizer_type: The type of the optimizer to use.
-            optimizer_learning_rate: The learning rate for the optimizer.
+            optimizer_config: Type and learning rate of the optimizer.
             spearman_eval: Evaluator for the Spearman correlation.
             s3_loc: URI string of where to store the final parameters to.
 
         """
-
-        optimizer = self._create_optimizer(optimizer_type, optimizer_learning_rate)
+        optimizer = self._create_optimizer(optimizer_config)
 
         @jax.jit
         def _compute_loss(params, features, target):
@@ -142,10 +142,14 @@ class Training:
 
         for epoch_idx in range(n_epochs):
             losses, opt_state = self._train_one_epoch(
-                train_features, train_scores, batch_size, _update_step, opt_state
+                data.train_features,
+                data.train_scores,
+                batch_size,
+                _update_step,
+                opt_state,
             )
             spearman_corr = self._evaluate(
-                validation_features, validation_scores, spearman_eval
+                data.validation_features, data.validation_scores, spearman_eval
             )
 
             if best_corr < spearman_corr:
