@@ -1,7 +1,36 @@
 import numpy as np
 
+PADDING_AMINO_ACID_LETTER = "X"
+AMINO_ACIDS_SORTED = [
+    "A",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "I",
+    "K",
+    "L",
+    "M",
+    "N",
+    "P",
+    "Q",
+    "R",
+    "S",
+    "T",
+    "V",
+    "W",
+    "Y",
+]
+
+_ONE_HOT_ENCODINGS: dict[str, np.ndarray] = {
+    **dict(zip(AMINO_ACIDS_SORTED, np.eye(len(AMINO_ACIDS_SORTED)))),
+    PADDING_AMINO_ACID_LETTER: np.zeros(len(AMINO_ACIDS_SORTED)),
+}
+
 # Data obtained from Table 3 of https://doi.org/10.1093/mp/sst148
-Z_SCALES = {
+_Z_SCALES: dict[str, np.ndarray] = {
     "F": np.array([-4.92, 1.3, 0.45]),
     "W": np.array([-4.75, 3.65, 0.85]),
     "I": np.array([-4.44, -1.68, -1.03]),
@@ -22,19 +51,24 @@ Z_SCALES = {
     "E": np.array([3.08, 0.039, -0.07]),
     "N": np.array([3.22, 1.45, 0.84]),
     "D": np.array([3.64, 1.13, 2.36]),
-    "X": np.array([0.0, 0.0, 0.0]),  # for padding
+    PADDING_AMINO_ACID_LETTER: np.array([0.0, 0.0, 0.0]),
+}
+
+ENCODINGS: dict[str, dict[str, np.ndarray]] = {
+    "one-hot": _ONE_HOT_ENCODINGS,
+    "zscales": _Z_SCALES,
 }
 
 
-def construct_feature_matrix_with_z_scales_encoding(
-    aa_sequences_mutated: list, wild_types: list
+def construct_feature_matrix(
+    aa_sequences_mutated: list,
+    wild_types: list,
+    encodings: dict[str, np.ndarray],
 ) -> np.ndarray:
     """Constructs a feature matrix for amino acid sequences.
 
-    The embedding for each amino acid are three numbers obtained from a principal
-    component analysis of 29 physicochemical properties for the amino acids (see
-    https://doi.org/10.1093/mp/sst148). The encoding for the amino acid in the
-    mutated sequence is concatenated to the one from the wild type.
+    The encoding for each amino acid in the mutated sequence is concatenated to
+    the one from the wild type, producing a feature vector per position.
 
     Args:
         aa_sequences_mutated: A list of sequences, each one represented as a string of
@@ -44,22 +78,24 @@ def construct_feature_matrix_with_z_scales_encoding(
         wild_types: List of letters, representing the amino acids that are present
                     in the place of the mutation (at center of sequence) in the wild
                     type protein.
+        encodings: Mapping from amino acid letter to its encoding vector.
 
     Returns:
-        The feature matrix of shape (number of sequences, 6).
+        The feature matrix of shape (number of sequences, seq_length, 2 * encoding_dim).
 
     """
     seq_length = len(aa_sequences_mutated[0])
     center_idx = seq_length // 2
+    encoding_dim = len(next(iter(encodings.values())))
 
-    feature_matrix = np.zeros(shape=(len(aa_sequences_mutated), seq_length, 6))
+    feature_matrix = np.zeros(
+        shape=(len(aa_sequences_mutated), seq_length, 2 * encoding_dim)
+    )
 
     for seq_idx, (aa_sequence, wt) in enumerate(zip(aa_sequences_mutated, wild_types)):
-        features_mutant = np.vstack(
-            [Z_SCALES[amino_acid] for amino_acid in aa_sequence]
-        )
+        features_mutant = np.vstack([encodings[aa] for aa in aa_sequence])
         aa_sequence_wt = aa_sequence[:center_idx] + wt + aa_sequence[center_idx + 1 :]
-        features_wt = np.vstack([Z_SCALES[amino_acid] for amino_acid in aa_sequence_wt])
+        features_wt = np.vstack([encodings[aa] for aa in aa_sequence_wt])
         feature_matrix[seq_idx] = np.hstack([features_wt, features_mutant])
 
     return feature_matrix

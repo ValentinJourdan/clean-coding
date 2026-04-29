@@ -3,7 +3,7 @@ import random
 import pandas as pd
 
 
-def data_splitting_engine(
+def get_data_splitting(
     data: pd.DataFrame, random_seed_int: int
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, float]:
     """Splits data into train/validation/test sets.

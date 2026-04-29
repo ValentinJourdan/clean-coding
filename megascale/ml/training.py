@@ -6,8 +6,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
-from insta_fs import FilesystemManager  # ty: ignore[unresolved-import]
-from insta_fs.io import save_pkl  # ty: ignore[unresolved-import]
+from insta_fs import FilesystemManager
+from insta_fs.io import save_pkl
 
 from megascale.ml.model import OneDimensionalCNNModel
 from megascale.ml.metrics_impl import SpearmanCorrEvaluator

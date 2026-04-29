@@ -4,25 +4,17 @@ import numpy as np
 from megascale.data_processing.environment import (
     construct_list_of_sequence_environments,
 )
-from megascale.data_processing.one_hot_encoding import (
-    construct_feature_matrix_with_one_hot_encoding,
-)
-from megascale.data_processing.z_scales_encoding import (
-    construct_feature_matrix_with_z_scales_encoding,
-)
+from megascale.data_processing.encoding import construct_feature_matrix, ENCODINGS
 
 
 def _preprocess_split(data: pd.DataFrame, emb_t: str) -> np.ndarray:
+    if emb_t not in ENCODINGS:
+        raise ValueError(f"Unknown embedding type: '{emb_t}'")
     seq_envs = construct_list_of_sequence_environments(
         data["aa_seq"], data["variant"], 5
     )
     wild_types = [var[0] for var in data["variant"]]
-    if emb_t == "one-hot":
-        return construct_feature_matrix_with_one_hot_encoding(seq_envs, wild_types)
-    elif emb_t == "zscales":
-        return construct_feature_matrix_with_z_scales_encoding(seq_envs, wild_types)
-    else:
-        raise ValueError(f"Unknown embedding type: '{emb_t}'")
+    return construct_feature_matrix(seq_envs, wild_types, ENCODINGS[emb_t])
 
 
 def preprocess_data(
