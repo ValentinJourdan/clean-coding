@@ -1,44 +1,69 @@
 import logging
+from dataclasses import dataclass
 from typing import Any, Callable, Union
 
-from flax.core.scope import FrozenVariableDict
 import jax
 import jax.numpy as jnp
 import numpy as np
 import optax
+from flax.core.scope import FrozenVariableDict
 from insta_fs import FilesystemManager
 from insta_fs.io import save_pkl
 
-from megascale.ml.model import OneDimensionalCNNModel
 from megascale.ml.metrics_impl import SpearmanCorrEvaluator
+from megascale.ml.model import OneDimensionalCNNModel
+
+RANDOM_SEED = 42
+
+
+@dataclass
+class TrainingData:
+    train_features: np.ndarray
+    train_scores: np.ndarray
+    validation_features: np.ndarray
+    validation_scores: np.ndarray
+
+
+@dataclass
+class ModelConfig:
+    conv_features: int
+    dense_features: int
+    use_pooling: bool
+    conv_kernel_size: int = 3
+    pooling_window_size: int = 3
+    dense_bottleneck_factor: int = 10
+    output_size: int = 1
+
+
+@dataclass
+class TrainingConfig:
+    n_epochs: int
+    batch_size: int
+    optimizer_type: str
+    optimizer_learning_rate: float
 
 
 class Training:
     """Classes that manages the training of the 1D-CNN model."""
 
-    def __init__(
-        self,
-        conv_features: int,
-        dense_features: int,
-        without_pooling: bool,
-        init_data: np.ndarray,
-    ):
-        """Constructor.
+    def __init__(self, model_config: ModelConfig, init_data: np.ndarray):
+        """Constructor
 
         Args:
-            conv_features: Number of features for convolution layers model.
-            dense_features: Numer of features for dense layers of model.
-            without_pooling: Whether pooling should be applied after the conv. layers
-                             of the model.
+            model_config: Architecture hyperparameters for the CNN model.
             init_data: Some data to initialize the parameters of the model with.
         """
         self._cnn_model = OneDimensionalCNNModel(
-            conv_features=conv_features,
-            dense_features=dense_features,
-            without_pooling=without_pooling,
+            conv_features=model_config.conv_features,
+            dense_features=model_config.dense_features,
+            use_pooling=model_config.use_pooling,
+            conv_kernel_size=model_config.conv_kernel_size,
+            pooling_window_size=model_config.pooling_window_size,
+            dense_bottleneck_factor=model_config.dense_bottleneck_factor,
+            output_size=model_config.output_size,
         )
         self._params: FrozenVariableDict | dict[str, Any] = self._cnn_model.init(
-            jax.random.PRNGKey(42), init_data
+            jax.random.PRNGKey(RANDOM_SEED), init_data
         )
 
     def get_model_and_params(
@@ -93,34 +118,22 @@ class Training:
 
     def run(
         self,
-        train_features: np.ndarray,
-        train_scores: np.ndarray,
-        validation_features: np.ndarray,
-        validation_scores: np.ndarray,
-        n_epochs: int,
-        batch_size: int,
-        optimizer_type: str,
-        optimizer_learning_rate: float,
+        data: TrainingData,
+        config: TrainingConfig,
         spearman_eval: SpearmanCorrEvaluator,
         s3_loc: str,
     ) -> None:
         """Runs a training loop.
 
         Args:
-            train_features: Training features.
-            train_scores: Training targets.
-            validation_features: Validation features.
-            validation_scores: Validation targets.
-            n_epochs: Number of epochs.
-            batch_size: Number of data points per batch.
-            optimizer_type: The type of the optimizer to use.
-            optimizer_learning_rate: The learning rate for the optimizer.
+            data: Training and validation features and scores.
+            config: Hyperparameters for the training loop.
             spearman_eval: Evaluator for the Spearman correlation.
             s3_loc: URI string of where to store the final parameters to.
 
         """
 
-        optimizer = self._create_optimizer(optimizer_type, optimizer_learning_rate)
+        optimizer = self._create_optimizer(config.optimizer_type, config.optimizer_learning_rate)
 
         @jax.jit
         def _compute_loss(params, features, target):
@@ -140,12 +153,12 @@ class Training:
         best_params: FrozenVariableDict | dict[str, Any] = self._params
         best_epoch = 0
 
-        for epoch_idx in range(n_epochs):
+        for epoch_idx in range(config.n_epochs):
             losses, opt_state = self._train_one_epoch(
-                train_features, train_scores, batch_size, _update_step, opt_state
+                data.train_features, data.train_scores, config.batch_size, _update_step, opt_state
             )
             spearman_corr = self._evaluate(
-                validation_features, validation_scores, spearman_eval
+                data.validation_features, data.validation_scores, spearman_eval
             )
 
             if best_corr < spearman_corr:
